@@ -9,12 +9,14 @@ import { PhasePanel } from './components/PhasePanel';
 import { PlayersPanel } from './components/PlayersPanel';
 import { SetupPanel } from './components/SetupPanel';
 import { SubmissionsPanel } from './components/SubmissionsPanel';
+import { TimelinePanel } from './components/TimelinePanel';
 import { gameOf, useGame, useGmStore } from './store';
 import { useHost } from './useHost';
 
 export function HostPage() {
   const game = useGame();
   const roomCode = useGmStore((s) => s.roomCode);
+  const events = useGmStore((s) => s.events);
   const { status, online, retry } = useHost();
   const pendingCount = Object.values(game.submissions).filter((submission) => submission.status === 'pending').length;
 
@@ -41,6 +43,7 @@ export function HostPage() {
           <Tabs.Trigger value="inbox">Inbox{pendingCount > 0 && ` (${pendingCount})`}</Tabs.Trigger>
           <Tabs.Trigger value="players">Players ({game.playerOrder.length})</Tabs.Trigger>
           <Tabs.Trigger value="notes">Notes</Tabs.Trigger>
+          <Tabs.Trigger value="timeline">Timeline</Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content value="lobby">
@@ -64,6 +67,9 @@ export function HostPage() {
         </Tabs.Content>
         <Tabs.Content value="notes">
           <NotesPanel game={game} />
+        </Tabs.Content>
+        <Tabs.Content value="timeline">
+          <TimelinePanel events={events} />
         </Tabs.Content>
       </Tabs.Root>
     </Page>

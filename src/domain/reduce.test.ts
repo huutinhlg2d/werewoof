@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeEvent, type EventBody, type GameEvent } from './events';
-import { reduce } from './reduce';
+import { activeEvents, eventStatuses, reduce } from './reduce';
 
 let clock = 0;
 const ev = (body: EventBody, id?: string): GameEvent => makeEvent(body, ++clock, id);
@@ -73,6 +73,26 @@ describe('reduce', () => {
       reduce(log);
 
       expect(log).toHaveLength(3);
+    });
+
+    it('eventStatuses reports what cancels each event and agrees with activeEvents', () => {
+      const redo = ev({ type: 'event.voided', targetId: undo.id });
+      const afterUndo = [joined, killed, undo];
+      const afterRedo = [...afterUndo, redo];
+
+      const undone = eventStatuses(afterUndo);
+      expect(undone.get(joined.id)).toEqual({ active: true });
+      expect(undone.get(killed.id)).toEqual({ active: false, undoneBy: undo.id });
+
+      const restored = eventStatuses(afterRedo);
+      expect(restored.get(killed.id)).toEqual({ active: true });
+      expect(restored.get(undo.id)).toEqual({ active: false, undoneBy: redo.id });
+
+      for (const log of [afterUndo, afterRedo]) {
+        const statuses = eventStatuses(log);
+        const activeIds = log.filter((e) => e.type !== 'event.voided' && statuses.get(e.id)!.active).map((e) => e.id);
+        expect(activeIds).toEqual(activeEvents(log).map((e) => e.id));
+      }
     });
   });
 });

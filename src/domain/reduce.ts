@@ -27,6 +27,25 @@ export function activeEvents(events: readonly GameEvent[]): GameEvent[] {
   return active.reverse();
 }
 
+export interface EventStatus {
+  active: boolean;
+  /** The void event currently cancelling this one; voiding that event restores it. */
+  undoneBy?: Id;
+}
+
+/** Per-event undo state for the timeline, using the same rules as `activeEvents`. */
+export function eventStatuses(events: readonly GameEvent[]): Map<Id, EventStatus> {
+  const undoneBy = new Map<Id, Id>();
+  const statuses = new Map<Id, EventStatus>();
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i];
+    const by = undoneBy.get(event.id);
+    statuses.set(event.id, by ? { active: false, undoneBy: by } : { active: true });
+    if (!by && event.type === 'event.voided') undoneBy.set(event.targetId, event.id);
+  }
+  return statuses;
+}
+
 // Events that reference a missing player or item are ignored so a stray edit never breaks replay.
 export function applyEvent(state: GameState, event: GameEvent): GameState {
   return produce(state, (draft) => {
