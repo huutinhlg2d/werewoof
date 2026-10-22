@@ -5,5 +5,7 @@ export * from './cn';
 export * from './Dialog/Dialog';
 export * from './Dialog/Sheet';
 export * from './Input/Input';
+export * from './Input/Select';
+export * from './Page/Page';
 export * from './Stack/Stack';
 export * from './Tabs/Tabs';
