@@ -10,6 +10,8 @@ export interface HostDeps {
   /** Rejoin token -> player id; the GM store persists this next to the event log. */
   sessions?: Record<string, Id>;
   onSessionsChange?(sessions: Record<string, Id>): void;
+  /** Ids of players with a live connection; fires whenever that set changes. */
+  onPresenceChange?(playerIds: Id[]): void;
 }
 
 interface Seat {
@@ -46,17 +48,22 @@ export class HostSession {
 
     link.onClose(() => {
       // A reconnect may already have replaced this link.
-      if (seat && this.seats.get(seat.playerId) === seat) this.seats.delete(seat.playerId);
+      if (seat && this.seats.get(seat.playerId) === seat) {
+        this.seats.delete(seat.playerId);
+        this.deps.onPresenceChange?.(this.connectedIds());
+      }
     });
   }
 
   /** Re-send views after any state change; unchanged views are skipped. */
   broadcast(): void {
     const state = this.deps.getState();
+    let removed = false;
     for (const seat of this.seats.values()) {
       const view = projectFor(state, seat.playerId);
       if (!view) {
         this.seats.delete(seat.playerId);
+        removed = true;
         seat.link.send({ type: 'rejected', reason: 'removed' });
         seat.link.close();
       } else if (!isEqual(view, seat.lastView)) {
@@ -64,6 +71,7 @@ export class HostSession {
         seat.link.send({ type: 'view', view });
       }
     }
+    if (removed) this.deps.onPresenceChange?.(this.connectedIds());
   }
 
   connectedIds(): Id[] {
@@ -96,6 +104,7 @@ export class HostSession {
 
     const seat: Seat = { link, playerId };
     this.seats.set(playerId, seat);
+    this.deps.onPresenceChange?.(this.connectedIds());
     link.send({ type: 'joined', playerId, token: seatToken });
     this.broadcast();
     return seat;

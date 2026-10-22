@@ -7,11 +7,13 @@ import type { ClientMessage, HostMessage } from './protocol';
 function setup(initialSessions: Record<string, Id> = {}) {
   const events: GameEvent[] = [];
   const sessions = { ...initialSessions };
+  const presence: Id[][] = [];
   const host = new HostSession({
     getState: () => reduce(events),
     append: (body: EventBody) => events.push(makeEvent(body)),
     sessions,
     onSessionsChange: (next) => Object.assign(sessions, next),
+    onPresenceChange: (ids) => presence.push(ids),
   });
 
   /** Opens a connection and records everything the host sends back. */
@@ -22,10 +24,10 @@ function setup(initialSessions: Record<string, Id> = {}) {
     clientSide.onMessage((raw) => received.push(raw as HostMessage));
     clientSide.onClose(() => (closed = true));
     host.attach(hostSide);
-    return { send: (m: unknown) => clientSide.send(m as ClientMessage), received, isClosed: () => closed };
+    return { send: (m: unknown) => clientSide.send(m as ClientMessage), close: () => clientSide.close(), received, isClosed: () => closed };
   };
 
-  return { host, events, sessions, connect, state: () => reduce(events) };
+  return { host, events, sessions, presence, connect, state: () => reduce(events) };
 }
 
 const joined = (received: HostMessage[]) => received.find((m) => m.type === 'joined') as Extract<HostMessage, { type: 'joined' }>;
@@ -142,5 +144,26 @@ describe('HostSession', () => {
     expect(conn.received.at(-1)).toEqual({ type: 'rejected', reason: 'removed' });
     expect(conn.isClosed()).toBe(true);
     expect(host.connectedIds()).toEqual([]);
+  });
+
+  it('reports presence as players connect, drop and get removed', () => {
+    const { connect, host, events, presence } = setup();
+    const a = connect();
+    a.send({ type: 'join', name: 'Ann' });
+    const { playerId } = joined(a.received);
+    expect(presence.at(-1)).toEqual([playerId]);
+
+    events.push(makeEvent({ type: 'player.removed', playerId }));
+    host.broadcast();
+    expect(presence.at(-1)).toEqual([]);
+
+    const b = connect();
+    b.send({ type: 'join', name: 'Bob' });
+    const bobId = joined(b.received).playerId;
+    expect(presence.at(-1)).toEqual([bobId]);
+
+    // Client-side drop (phone lost signal).
+    b.close();
+    expect(presence.at(-1)).toEqual([]);
   });
 });
