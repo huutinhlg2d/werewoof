@@ -41,6 +41,24 @@ describe('gm store', () => {
     expect(store.getState().events).toHaveLength(4);
   });
 
+  it('restart keeps players, preset, room and seats but starts a clean round', () => {
+    const { append, setRoomCode, setSessions, restart } = store.getState();
+    append({ type: 'player.joined', playerId: 'a', name: 'Ann' });
+    append({ type: 'role.assigned', playerId: 'a', roleId: 'seer' });
+    append({ type: 'phase.set', label: 'Night', day: 2 });
+    setRoomCode('ABCDE');
+    setSessions({ tok: 'a' });
+    const epoch = store.getState().epoch;
+
+    restart();
+
+    const state = store.getState();
+    expect(state).toMatchObject({ roomCode: 'ABCDE', sessions: { tok: 'a' }, epoch });
+    const game = gameOf(state.events);
+    expect(game.players.a).toMatchObject({ name: 'Ann', roleId: null });
+    expect(game.phase).toEqual({ label: 'Lobby', day: 0 });
+  });
+
   it('reset clears the game and bumps the epoch', () => {
     store.getState().append({ type: 'player.joined', playerId: 'a', name: 'Ann' });
     store.getState().setRoomCode('ABCDE');

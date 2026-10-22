@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { makeEvent, reduce, type EventBody, type GameEvent, type GameState, type Id } from '@/domain';
+import { makeEvent, reduce, restartEvents, type EventBody, type GameEvent, type GameState, type Id } from '@/domain';
 
 interface GmStore {
   roomCode: string | null;
@@ -15,6 +15,9 @@ interface GmStore {
   toggleVoid(eventId: Id): void;
   setRoomCode(code: string): void;
   setSessions(sessions: Record<string, Id>): void;
+  /** New round with the same players, preset and room; history is replaced, so it cannot be undone. */
+  restart(): void;
+  /** Drops everything, players included, and opens a fresh room. */
   reset(): void;
 }
 
@@ -30,6 +33,8 @@ export const useGmStore = create<GmStore>()(
       toggleVoid: (eventId) => set((s) => ({ events: [...s.events, makeEvent({ type: 'event.voided', targetId: eventId })] })),
       setRoomCode: (roomCode) => set({ roomCode }),
       setSessions: (sessions) => set({ sessions }),
+      restart: () =>
+        set((s) => ({ events: restartEvents(gameOf(s.events)).map((body) => makeEvent(body)) })),
       reset: () => set((s) => ({ roomCode: null, events: [], sessions: {}, epoch: s.epoch + 1 })),
     }),
     {

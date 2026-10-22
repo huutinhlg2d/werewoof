@@ -4,5 +4,6 @@ export * from './phase';
 export * from './project';
 export * from './presets';
 export * from './reduce';
+export * from './restart';
 export * from './tally';
 export * from './types';
