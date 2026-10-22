@@ -30,8 +30,8 @@ npm run build
 
 ## Deploy
 
-1. Repo **Settings > Pages > Source**: GitHub Actions.
-2. Push to `main`; the workflow lints, tests, builds and publishes.
+1. Repo **Settings > Pages > Source**: GitHub Actions (`npm run deploy` tries to set this for you).
+2. Run `npm run deploy` from `main`: it pushes (or re-runs the workflow if already pushed), waits for the build and prints the site URL. Pushing to `main` also deploys on its own.
 
 If the repo is renamed, update the `/werewoof/` base path in `vite.config.ts`.
 
