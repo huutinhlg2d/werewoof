@@ -3,6 +3,8 @@ import { getPreset, presetLoaded } from '@/domain';
 import { Badge, Page, Stack, Tabs } from '@/ui';
 import { JoinCard } from './components/JoinCard';
 import { NewGameButton } from './components/NewGameButton';
+import { NightPanel } from './components/NightPanel';
+import { PhasePanel } from './components/PhasePanel';
 import { PlayersPanel } from './components/PlayersPanel';
 import { SetupPanel } from './components/SetupPanel';
 import { gameOf, useGame, useGmStore } from './store';
@@ -31,6 +33,8 @@ export function HostPage() {
       <Tabs.Root defaultValue="lobby">
         <Tabs.List>
           <Tabs.Trigger value="lobby">Lobby</Tabs.Trigger>
+          <Tabs.Trigger value="phase">Phase</Tabs.Trigger>
+          <Tabs.Trigger value="night">Night</Tabs.Trigger>
           <Tabs.Trigger value="players">Players ({game.playerOrder.length})</Tabs.Trigger>
         </Tabs.List>
 
@@ -40,6 +44,12 @@ export function HostPage() {
             <SetupPanel game={game} />
             <NewGameButton />
           </Stack>
+        </Tabs.Content>
+        <Tabs.Content value="phase">
+          <PhasePanel game={game} />
+        </Tabs.Content>
+        <Tabs.Content value="night">
+          <NightPanel game={game} />
         </Tabs.Content>
         <Tabs.Content value="players">
           <PlayersPanel game={game} online={online} />
