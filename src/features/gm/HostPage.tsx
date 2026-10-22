@@ -4,9 +4,11 @@ import { Badge, Page, Stack, Tabs } from '@/ui';
 import { JoinCard } from './components/JoinCard';
 import { NewGameButton } from './components/NewGameButton';
 import { NightPanel } from './components/NightPanel';
+import { NotesPanel } from './components/NotesPanel';
 import { PhasePanel } from './components/PhasePanel';
 import { PlayersPanel } from './components/PlayersPanel';
 import { SetupPanel } from './components/SetupPanel';
+import { SubmissionsPanel } from './components/SubmissionsPanel';
 import { gameOf, useGame, useGmStore } from './store';
 import { useHost } from './useHost';
 
@@ -14,6 +16,7 @@ export function HostPage() {
   const game = useGame();
   const roomCode = useGmStore((s) => s.roomCode);
   const { status, online, retry } = useHost();
+  const pendingCount = Object.values(game.submissions).filter((submission) => submission.status === 'pending').length;
 
   // Load the classic preset when the game has none (first visit or after a reset).
   useEffect(() => {
@@ -35,7 +38,9 @@ export function HostPage() {
           <Tabs.Trigger value="lobby">Lobby</Tabs.Trigger>
           <Tabs.Trigger value="phase">Phase</Tabs.Trigger>
           <Tabs.Trigger value="night">Night</Tabs.Trigger>
+          <Tabs.Trigger value="inbox">Inbox{pendingCount > 0 && ` (${pendingCount})`}</Tabs.Trigger>
           <Tabs.Trigger value="players">Players ({game.playerOrder.length})</Tabs.Trigger>
+          <Tabs.Trigger value="notes">Notes</Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content value="lobby">
@@ -51,8 +56,14 @@ export function HostPage() {
         <Tabs.Content value="night">
           <NightPanel game={game} />
         </Tabs.Content>
+        <Tabs.Content value="inbox">
+          <SubmissionsPanel game={game} />
+        </Tabs.Content>
         <Tabs.Content value="players">
           <PlayersPanel game={game} online={online} />
+        </Tabs.Content>
+        <Tabs.Content value="notes">
+          <NotesPanel game={game} />
         </Tabs.Content>
       </Tabs.Root>
     </Page>
