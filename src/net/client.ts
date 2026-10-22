@@ -1,5 +1,5 @@
 import type { Id, PlayerView } from '@/domain';
-import type { Link } from './link';
+import { ConnectError, type ConnectFailure, type Link } from './link';
 import { parseHostMessage, type ClientMessage } from './protocol';
 
 export type ClientStatus = 'connecting' | 'connected' | 'disconnected';
@@ -15,6 +15,10 @@ export interface ClientState {
   view: PlayerView | null;
   /** Set when the host refuses us for good (e.g. removed); retrying is pointless. */
   rejected: string | null;
+  /** Why the latest attempt failed; cleared once joined. */
+  error: ConnectFailure | null;
+  /** Failed attempts since the last successful join. */
+  attempts: number;
 }
 
 export interface ClientDeps {
@@ -27,17 +31,23 @@ export interface ClientDeps {
 
 const PING_MS = 10_000;
 const DEAD_AFTER_MS = 30_000;
+// A host that opened the channel but never answers the join is as good as unreachable.
+const JOIN_ACK_MS = 15_000;
 const RETRY_MS = [500, 1_000, 2_000, 5_000];
 
 /** Player side: keeps one link alive (reconnect with backoff + heartbeat) and exposes the latest view. */
 export class GameClient {
-  private state: ClientState = { status: 'connecting', view: null, rejected: null };
+  private state: ClientState = { status: 'connecting', view: null, rejected: null, error: null, attempts: 0 };
   private listeners = new Set<() => void>();
   private link: Link<ClientMessage> | null = null;
   private attempt = 0;
   private generation = 0;
   private lastHeard = 0;
-  private timers: { ping?: ReturnType<typeof setInterval>; retry?: ReturnType<typeof setTimeout> } = {};
+  private timers: {
+    ping?: ReturnType<typeof setInterval>;
+    retry?: ReturnType<typeof setTimeout>;
+    ack?: ReturnType<typeof setTimeout>;
+  } = {};
   private stopped = false;
 
   constructor(private deps: ClientDeps) {}
@@ -81,8 +91,11 @@ export class GameClient {
     let link: Link<ClientMessage>;
     try {
       link = await this.deps.connect();
-    } catch {
-      if (generation === this.generation) this.scheduleRetry();
+    } catch (error) {
+      if (generation === this.generation) {
+        this.fail(error instanceof ConnectError ? error.reason : 'network');
+        this.scheduleRetry();
+      }
       return;
     }
     // Superseded by stop() or a newer reconnect while connecting.
@@ -98,12 +111,22 @@ export class GameClient {
       if (this.link !== link) return;
       this.link = null;
       clearInterval(this.timers.ping);
+      clearTimeout(this.timers.ack);
       this.set({ status: 'disconnected' });
       if (!this.state.rejected) this.scheduleRetry();
     });
 
     link.send({ type: 'join', name: this.deps.name, token: this.deps.loadSession()?.token });
     this.timers.ping = setInterval(() => this.heartbeat(), PING_MS);
+    this.timers.ack = setTimeout(() => {
+      if (this.link !== link || this.state.status === 'connected') return;
+      this.fail('no-response');
+      this.reconnectNow();
+    }, JOIN_ACK_MS);
+  }
+
+  private fail(error: ConnectFailure): void {
+    this.set({ error, attempts: this.state.attempts + 1 });
   }
 
   private receive(link: Link<ClientMessage>, raw: unknown): void {
@@ -116,7 +139,7 @@ export class GameClient {
       case 'joined':
         this.attempt = 0;
         this.deps.saveSession({ playerId: message.playerId, token: message.token, name: this.deps.name });
-        this.set({ status: 'connected' });
+        this.set({ status: 'connected', error: null, attempts: 0 });
         break;
       case 'view':
         this.set({ view: message.view });
@@ -150,6 +173,7 @@ export class GameClient {
     this.generation++;
     clearInterval(this.timers.ping);
     clearTimeout(this.timers.retry);
+    clearTimeout(this.timers.ack);
     const link = this.link;
     this.link = null;
     link?.close();

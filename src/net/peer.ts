@@ -1,12 +1,13 @@
 import Peer, { type DataConnection, type PeerOptions } from 'peerjs';
-import type { Link } from './link';
+import { ConnectError, type Link } from './link';
 import type { ClientMessage, HostMessage } from './protocol';
 
 const PEER_PREFIX = 'werewoof-';
 // No 0/O/1/I so codes survive being read aloud.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 5;
-const CONNECT_TIMEOUT_MS = 10_000;
+// ICE over a cellular relay can take well over 10s, and every retry restarts the negotiation.
+const CONNECT_TIMEOUT_MS = 25_000;
 const PREFERRED_RETRIES = 5;
 const PREFERRED_RETRY_MS = 2_000;
 
@@ -21,10 +22,11 @@ function randomCode(): string {
 }
 
 // PeerJS already ships a STUN + public TURN default; only override when the deployer supplies their own TURN.
-function peerOptions(): PeerOptions {
-  const { VITE_TURN_URL: url, VITE_TURN_USERNAME: username, VITE_TURN_CREDENTIAL: credential } = import.meta.env;
+export function peerOptions(env: Record<string, string | undefined> = import.meta.env): PeerOptions {
+  const { VITE_TURN_URL: url, VITE_TURN_USERNAME: username, VITE_TURN_CREDENTIAL: credential } = env;
   if (!url) return {};
-  return { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: url, username, credential }] } };
+  const urls = url.split(',').map((entry) => entry.trim());
+  return { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls, username, credential }] } };
 }
 
 function wrap<Out>(connection: DataConnection, onDispose: () => void): Link<Out> {
@@ -126,25 +128,39 @@ export async function openRoom(preferred?: string, maxAttempts = 5): Promise<Roo
   throw lastError;
 }
 
-/** Rejects if the room does not exist or the channel is not open within the timeout. */
+/** Rejects with a `ConnectError` if the room does not exist or the channel is not open within the timeout. */
 export function connectToRoom(code: string): Promise<Link<ClientMessage>> {
   return new Promise((resolve, reject) => {
     const peer = new Peer({ ...peerOptions(), debug: 0 });
+    let settled = false;
+
     const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       peer.destroy();
-      reject(error);
+      reject(toConnectError(error));
     };
-    const timer = setTimeout(() => fail(new Error('timeout')), CONNECT_TIMEOUT_MS);
+    const timer = setTimeout(() => fail(new ConnectError('timeout')), CONNECT_TIMEOUT_MS);
 
     peer.once('error', fail);
     peer.once('open', () => {
       const connection = peer.connect(PEER_PREFIX + normalizeCode(code), { reliable: true, serialization: 'json' });
+      // Negotiation can fail without any peer-level error; do not wait out the timeout for it.
+      connection.once('error', fail);
+      connection.once('close', () => fail(new ConnectError('network')));
       connection.once('open', () => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         peer.off('error', fail);
         resolve(wrap<ClientMessage>(connection, () => peer.destroy()));
       });
     });
   });
+}
+
+function toConnectError(error: unknown): ConnectError {
+  if (error instanceof ConnectError) return error;
+  return new ConnectError((error as { type?: string })?.type === 'peer-unavailable' ? 'room-not-found' : 'network');
 }

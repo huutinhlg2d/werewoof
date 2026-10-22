@@ -6,3 +6,11 @@ export interface Link<Out> {
   /** Fires once, whether the remote or this side closed it. */
   onClose(handler: () => void): void;
 }
+
+export type ConnectFailure = 'room-not-found' | 'timeout' | 'network' | 'no-response';
+
+export class ConnectError extends Error {
+  constructor(readonly reason: ConnectFailure) {
+    super(reason);
+  }
+}

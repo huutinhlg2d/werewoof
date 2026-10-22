@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameClient, type ClientSession } from './client';
-import type { Link } from './link';
+import { ConnectError, type Link } from './link';
 import { createLinkPair } from './memoryLink';
 import type { ClientMessage, HostMessage } from './protocol';
 
@@ -10,7 +10,7 @@ function setup(stored: ClientSession | null = null) {
   let session = stored;
   const hostSides: Link<HostMessage>[] = [];
   const sent: ClientMessage[] = [];
-  let failNext = false;
+  let failNext: Error | null = null;
 
   const client = new GameClient({
     name: 'Ann',
@@ -18,8 +18,9 @@ function setup(stored: ClientSession | null = null) {
     saveSession: (next) => (session = next),
     connect: async () => {
       if (failNext) {
-        failNext = false;
-        throw new Error('offline');
+        const error = failNext;
+        failNext = null;
+        throw error;
       }
       const [clientSide, hostSide] = createLinkPair<ClientMessage, HostMessage>();
       hostSide.onMessage((raw) => sent.push(raw as ClientMessage));
@@ -33,7 +34,7 @@ function setup(stored: ClientSession | null = null) {
     sent,
     hostSides,
     session: () => session,
-    failNextConnect: () => (failNext = true),
+    failNextConnect: (error: Error = new Error('offline')) => (failNext = error),
     lastHost: () => hostSides.at(-1)!,
   };
 }
@@ -94,6 +95,50 @@ describe('GameClient', () => {
     expect(t.hostSides).toHaveLength(0);
 
     await vi.advanceTimersByTimeAsync(500);
+    expect(t.hostSides).toHaveLength(1);
+  });
+
+  it('records why connecting failed and counts attempts, then clears both once joined', async () => {
+    const t = setup();
+    t.failNextConnect();
+    t.client.start();
+    await flush();
+    expect(t.client.getState()).toMatchObject({ error: 'network', attempts: 1 });
+
+    await vi.advanceTimersByTimeAsync(500);
+    t.lastHost().send({ type: 'joined', playerId: 'p1', token: 'tok' });
+
+    expect(t.client.getState()).toMatchObject({ status: 'connected', error: null, attempts: 0 });
+  });
+
+  it('keeps the reason carried by a ConnectError', async () => {
+    const t = setup();
+    t.failNextConnect(new ConnectError('room-not-found'));
+    t.client.start();
+    await flush();
+
+    expect(t.client.getState().error).toBe('room-not-found');
+  });
+
+  it('reconnects when the host opens the channel but never answers the join', async () => {
+    const t = setup();
+    t.client.start();
+    await flush();
+
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    expect(t.client.getState()).toMatchObject({ error: 'no-response', attempts: 1 });
+    expect(t.hostSides).toHaveLength(2);
+  });
+
+  it('does not time out a join the host answered', async () => {
+    const t = setup();
+    t.client.start();
+    await flush();
+    t.lastHost().send({ type: 'joined', playerId: 'p1', token: 'tok' });
+
+    await vi.advanceTimersByTimeAsync(15_000);
+
     expect(t.hostSides).toHaveLength(1);
   });
 
