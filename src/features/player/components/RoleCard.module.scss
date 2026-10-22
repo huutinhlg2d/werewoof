@@ -1,0 +1,40 @@
+@use 'mixins';
+
+.card {
+  @include mixins.focus-ring;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 9rem;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font: inherit;
+  text-align: center;
+  // Long-press must not select text or open the callout menu while holding.
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  cursor: pointer;
+
+  &[aria-pressed='true'] {
+    border-color: var(--color-accent);
+  }
+}
+
+.name {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.description {
+  color: var(--color-text-muted);
+}
+
+.hint {
+  color: var(--color-text-muted);
+}
