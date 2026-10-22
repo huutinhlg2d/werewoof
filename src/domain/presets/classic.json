@@ -1,0 +1,42 @@
+{
+  "id": "classic",
+  "name": "Classic",
+  "phases": ["Night", "Day discussion", "Vote"],
+  "roles": [
+    {
+      "id": "villager",
+      "name": "Villager",
+      "description": "No special ability. Find the werewolves and vote them out."
+    },
+    {
+      "id": "werewolf",
+      "name": "Werewolf",
+      "description": "Each night the werewolves agree on one player to eliminate. Hide your identity by day.",
+      "nightOrder": 40
+    },
+    {
+      "id": "seer",
+      "name": "Seer",
+      "description": "Each night you may learn whether one player is a werewolf.",
+      "nightOrder": 20
+    },
+    {
+      "id": "doctor",
+      "name": "Doctor",
+      "description": "Each night you may protect one player from elimination.",
+      "nightOrder": 30
+    },
+    {
+      "id": "witch",
+      "name": "Witch",
+      "description": "You have one potion that saves a player and one that eliminates a player. Each can be used once.",
+      "nightOrder": 50,
+      "suggestedTokens": ["Heal potion", "Poison potion"]
+    },
+    {
+      "id": "hunter",
+      "name": "Hunter",
+      "description": "When you are eliminated, you may take one player down with you."
+    }
+  ]
+}
