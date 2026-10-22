@@ -11,6 +11,12 @@
   gap: var(--space-1);
   padding: var(--space-1);
   overflow-x: auto;
+  // Swipe to scroll; a visible bar inside a small tab strip is just noise.
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
   border-radius: var(--radius-md);
   background: var(--color-surface);
 }
