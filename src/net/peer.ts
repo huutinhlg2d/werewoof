@@ -7,6 +7,8 @@ const PEER_PREFIX = 'werewoof-';
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 5;
 const CONNECT_TIMEOUT_MS = 10_000;
+const PREFERRED_RETRIES = 5;
+const PREFERRED_RETRY_MS = 2_000;
 
 export const normalizeCode = (code: string): string => code.trim().toUpperCase();
 
@@ -96,8 +98,22 @@ function tryOpenRoom(code: string): Promise<Room> {
   });
 }
 
-/** Claims a free room code on the public broker; retries on the rare collision. */
-export async function openRoom(maxAttempts = 5): Promise<Room> {
+/**
+ * Claims a free room code on the public broker. A `preferred` code (GM refresh) is retried briefly
+ * because the broker keeps the old registration for a few seconds, then a fresh code is used.
+ */
+export async function openRoom(preferred?: string, maxAttempts = 5): Promise<Room> {
+  if (preferred && isValidCode(preferred)) {
+    for (let i = 0; i < PREFERRED_RETRIES; i++) {
+      try {
+        return await tryOpenRoom(preferred);
+      } catch (error) {
+        if ((error as { type?: string }).type !== 'unavailable-id') break;
+        await new Promise((resolve) => setTimeout(resolve, PREFERRED_RETRY_MS));
+      }
+    }
+  }
+
   let lastError: unknown;
   for (let i = 0; i < maxAttempts; i++) {
     try {
