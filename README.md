@@ -37,4 +37,12 @@ If the repo is renamed, update the `/werewoof/` base path in `vite.config.ts`.
 
 ## Networking notes
 
-PeerJS's free public broker and its default STUN/TURN servers are used. Strict mobile or corporate networks may need your own TURN server; set `VITE_TURN_URL`, `VITE_TURN_USERNAME` and `VITE_TURN_CREDENTIAL` at build time.
+PeerJS's free public broker and its default STUN/TURN servers are used. Phones on mobile data or strict networks often cannot connect directly and need a TURN relay. Use any TURN provider and set repo variables (comma-separate several URLs), then redeploy:
+
+```sh
+gh variable set TURN_URL --body 'turn:relay.example.com:3478,turns:relay.example.com:443?transport=tcp'
+gh variable set TURN_USERNAME --body '<username>'
+gh variable set TURN_CREDENTIAL --body '<credential>'
+```
+
+The credential ends up in the public bundle, so use a limited or rotating one. For local builds set `VITE_TURN_URL`, `VITE_TURN_USERNAME` and `VITE_TURN_CREDENTIAL`.

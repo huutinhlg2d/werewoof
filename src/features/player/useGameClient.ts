@@ -41,5 +41,5 @@ export function useGameClient(code: string, name: string) {
   }, [client]);
 
   const state = useSyncExternalStore(client.subscribe, client.getState);
-  return { state, submit: client.submit.bind(client) };
+  return { state, submit: client.submit.bind(client), reconnect: client.reconnectNow.bind(client) };
 }

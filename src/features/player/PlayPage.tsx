@@ -7,6 +7,7 @@ import { PhaseBanner } from './components/PhaseBanner';
 import { PlayerList } from './components/PlayerList';
 import { RoleCard } from './components/RoleCard';
 import { TokenList } from './components/TokenList';
+import { connectionMessage } from './connectionMessage';
 import { loadName, loadSession } from './storage';
 import { useGameClient } from './useGameClient';
 
@@ -20,10 +21,10 @@ export function PlayPage() {
 }
 
 function Room({ code, name }: { code: string; name: string }) {
-  const { state, submit } = useGameClient(code, name);
+  const { state, submit, reconnect } = useGameClient(code, name);
   const [tab, setTab] = useState('me');
   const [seen, setSeen] = useState(0);
-  const { view, status, rejected } = state;
+  const { view, status, rejected, error, attempts } = state;
 
   if (rejected) {
     return (
@@ -46,6 +47,16 @@ function Room({ code, name }: { code: string; name: string }) {
         <Card>
           <Stack>
             <strong>{status === 'connected' ? 'Joined. Waiting for the game…' : `Connecting to room ${code}…`}</strong>
+            {error && (
+              <small role="alert">
+                {connectionMessage(error)} (attempt {attempts + 1})
+              </small>
+            )}
+            {status !== 'connected' && (
+              <Button variant="secondary" onClick={reconnect}>
+                Try again now
+              </Button>
+            )}
             <small>Check the room code and that the Game Master has the game open.</small>
             <Button asChild variant="secondary">
               <Link to="/join">Use a different code</Link>
