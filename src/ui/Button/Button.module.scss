@@ -1,0 +1,65 @@
+@use 'mixins';
+
+.button {
+  @include mixins.focus-ring;
+  @include mixins.pressable;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+
+  &[data-size='sm'] {
+    min-height: 2rem;
+    padding: 0 var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+
+  &[data-size='lg'] {
+    min-height: 3.5rem;
+    font-size: var(--font-size-lg);
+  }
+
+  &[data-full-width] {
+    width: 100%;
+  }
+
+  &[data-variant='primary'] {
+    background: var(--color-accent);
+    color: var(--color-accent-contrast);
+  }
+
+  &[data-variant='secondary'] {
+    background: var(--color-surface-raised);
+    border-color: var(--color-border);
+    color: var(--color-text);
+  }
+
+  &[data-variant='ghost'] {
+    background: transparent;
+    color: var(--color-text);
+  }
+
+  &[data-variant='danger'] {
+    background: var(--color-danger);
+    color: var(--color-accent-contrast);
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  @include mixins.reduced-motion {
+    transition: none;
+  }
+}

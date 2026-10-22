@@ -1,0 +1,26 @@
+.badge {
+  --badge-color: var(--color-text-muted);
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.125rem var(--space-2);
+  border: 1px solid var(--badge-color);
+  border-radius: var(--radius-pill);
+  color: var(--badge-color);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+
+  &[data-tone='accent'] {
+    --badge-color: var(--color-accent);
+  }
+
+  &[data-tone='success'] {
+    --badge-color: var(--color-success);
+  }
+
+  &[data-tone='danger'] {
+    --badge-color: var(--color-danger);
+  }
+}
